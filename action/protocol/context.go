@@ -129,6 +129,7 @@ type (
 		AddClaimRewardAddress                   bool
 		EnforceLegacyEndorsement                bool
 		EnableDynamicFeeTx                      bool
+		CheckActionTotalSize                    bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -281,6 +282,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AddClaimRewardAddress:                   g.IsUpernavik(height),
 			EnforceLegacyEndorsement:                !g.IsUpernavik(height),
 			EnableDynamicFeeTx:                      g.IsVanuatu(height),
+			CheckActionTotalSize:                    !g.IsToBeEnabled(height),
 		},
 	)
 }
