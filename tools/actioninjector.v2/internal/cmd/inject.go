@@ -430,8 +430,9 @@ func (p *injectProcessor) inject(wrapSelp WrapSealedEnvelope) {
 	}
 
 	// actHash, _ := selp.Hash()
-	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	resp, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resp, err := p.api.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
 	if err != nil {
 		log.L().Error("Failed to inject.", zap.Error(err), zap.String("sender", selp.SenderAddress().String()), zap.Uint64("nonce", selp.Nonce()))
 		atomic.AddUint64(&_injectedErrActs, 1)
