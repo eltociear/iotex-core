@@ -108,7 +108,8 @@ const (
 func newInjectionProcessor() (*injectProcessor, error) {
 	var conn *grpc.ClientConn
 	var err error
-	grpcctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	log.L().Info("Server Addr", zap.String("endpoint", rawInjectCfg.serverAddr))
 	if rawInjectCfg.insecure {
 		conn, err = grpc.DialContext(grpcctx, rawInjectCfg.serverAddr, grpc.WithBlock(), grpc.WithInsecure())
@@ -411,7 +412,8 @@ func (p *injectProcessor) processFeedback(feed feedback) {
 		processing: true,
 		time:       t,
 	})
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	p.resetAccountNonce(ctx, feed.sender)
 	_nonceProcessingMap.Store(feed.sender, feedT{
 		processing: false,
