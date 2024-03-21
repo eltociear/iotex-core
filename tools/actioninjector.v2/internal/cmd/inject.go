@@ -403,8 +403,7 @@ func (p *injectProcessor) processFeedback(feed feedback) {
 			return
 		}
 	}
-	if strings.Contains(feed.err.Error(), action.ErrExistedInPool.Error()) ||
-		strings.Contains(feed.err.Error(), action.ErrReplaceUnderpriced.Error()) {
+	if strings.Contains(feed.err.Error(), action.ErrExistedInPool.Error()) {
 		return
 	}
 	t := time.Now().UnixNano()
