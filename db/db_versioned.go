@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
@@ -506,6 +507,118 @@ func (b *BoltDBVersioned) checkNamespaceAndKey(ns string, key []byte) error {
 	return nil
 }
 
+func (b *BoltDBVersioned) Transform(version uint64, ns, meta string) error {
+	var (
+		err error
+	)
+	if ns == "Account" {
+		if err = b.db.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(ns))
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(ns))
+			}
+			// move height key to meta namespace
+			hKey := []byte("currentHeight")
+			if v := bucket.Get(hKey); v != nil {
+				mBucket, err := tx.CreateBucketIfNotExists([]byte(meta))
+				if err != nil {
+					return err
+				}
+				if err = mBucket.Put(hKey, v); err != nil {
+					return err
+				}
+				if err = bucket.Delete(hKey); err != nil {
+					return err
+				}
+				println("moved height key")
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	var (
+		keyLength int
+	)
+	// key length
+	if ns == "Account" {
+		keyLength = 20
+	} else if ns == "Contract" {
+		keyLength = 32
+	} else {
+		return fmt.Errorf("namespace %s not supported", ns)
+	}
+	// convert keys to versioned
+	var (
+		done  bool
+		total uint64
+		start = time.Now()
+	)
+	for !done {
+		entries := 0
+		if err = b.db.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(ns))
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(ns))
+			}
+			var (
+				c    = bucket.Cursor()
+				k, v []byte
+			)
+			mBucket := tx.Bucket([]byte(meta))
+			if mBucket == nil {
+				return errors.Wrap(ErrBucketNotExist, "metadata bucket doesn't exist")
+			}
+			if kLast := mBucket.Get([]byte(ns)); kLast != nil {
+				// there's a transform in progress
+				k, v = c.Seek(kLast)
+				fmt.Printf("continue key = %x\n", k)
+			} else {
+				k, v = c.First()
+				fmt.Printf("first key = %x\n", k)
+			}
+			for ; k != nil; k, v = c.Next() {
+				if len(k) != keyLength {
+					println("key length =", len(k))
+					panic("wrong key")
+				}
+				if err = bucket.Put(keyForWrite(k, version), v); err != nil {
+					return err
+				}
+				if err = bucket.Delete(k); err != nil {
+					return err
+				}
+				total++
+				if entries++; entries == 256000 {
+					// commit the tx, and write the next key
+					if k, _ = c.Next(); k != nil {
+						fmt.Printf("commit %d entries, next key = %x\n", entries, k)
+						return mBucket.Put([]byte(ns), k)
+					} else {
+						// hit the end of the bucket
+						goto end
+					}
+				}
+			}
+		end:
+			done = true
+			if err = mBucket.Delete([]byte(ns)); err != nil {
+				return err
+			}
+			// finally write the namespace metadata
+			vn := versionedNamespace{
+				keyLen: uint32(keyLength),
+			}
+			fmt.Printf("commit %d entries, time = %v\n", total, time.Now().Sub(start))
+			return bucket.Put(_minKey, vn.serialize())
+		}); err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+	}
+	return err
+}
+
 // Option sets an option
 type Option func(*KvWithVersion)
 
@@ -612,4 +725,8 @@ func (b *KvWithVersion) SetVersion(v uint64) KVStore {
 		kv.versioned[k] = true
 	}
 	return &kv
+}
+
+func (b *KvWithVersion) TransformToVersioned(version uint64, ns string) error {
+	return b.db.Transform(version, ns, "Meta")
 }

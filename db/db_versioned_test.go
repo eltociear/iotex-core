@@ -8,6 +8,8 @@ package db
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math"
 	"testing"
 
@@ -531,5 +533,30 @@ func TestCommitToDB(t *testing.T) {
 			r.Equal(e.err, errors.Cause(err))
 			r.Equal(e.v, value)
 		}
+	}
+}
+
+func TestConstantKey(t *testing.T) {
+	r := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-version")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(testPath)
+	}()
+
+	cfg := DefaultConfig
+	cfg.DbPath = "../data/archive.db"
+	db := NewKVStoreWithVersion(cfg, VersionedNamespaceOption("Account", "Contract"))
+	ctx := context.Background()
+	r.NoError(db.Start(ctx))
+	defer func() {
+		db.Stop(ctx)
+	}()
+
+	key, _ := hex.DecodeString("72e48afbc999a7f892ebaf3543446469acbcd1a0")
+	for i := 0; i < 20; i++ {
+		_, v, err := db.db.get(uint64(i), "Account", key)
+		r.NoError(err)
+		fmt.Printf("const key = %x\n", v)
 	}
 }
