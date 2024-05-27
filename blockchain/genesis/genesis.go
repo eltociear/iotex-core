@@ -80,7 +80,7 @@ func defaultConfig() Genesis {
 		},
 		Account: Account{
 			InitBalanceMap:          make(map[string]string),
-			ReplayDeployerWhitelist: []string{"0x3fab184622dc19b6109349b94811493bf2a45362"},
+			ReplayDeployerWhitelist: []string{"0x3fab184622dc19b6109349b94811493bf2a45362", "0x4c8d290a1b368ac4728d83a9e8321fc3af2b39b1"},
 		},
 		Poll: Poll{
 			PollMode:                         "nativeMix",

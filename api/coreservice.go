@@ -890,6 +890,21 @@ func (core *coreService) Start(_ context.Context) error {
 			return errors.Wrap(err, "failed to start message batcher")
 		}
 	}
+	g := core.Genesis()
+	for _, v := range g.Account.ReplayDeployerWhitelist {
+		log.L().Info("coreservice", zap.String("whitelist", v))
+	}
+	addr, err := address.FromHex("0x3fab184622dc19b6109349b94811493bf2a45362")
+	if err != nil {
+		log.L().Error("coreservice", zap.Error(err))
+	}
+	log.L().Info("coreservice", zap.Bool("3fab", g.IsDeployerWhitelisted(addr)))
+
+	addr, err = address.FromHex("0x4c8d290a1b368ac4728d83a9e8321fc3af2b39b1")
+	if err != nil {
+		log.L().Error("coreservice", zap.Error(err))
+	}
+	log.L().Info("coreservice", zap.Bool("4c8d", g.IsDeployerWhitelisted(addr)))
 	return nil
 }
 

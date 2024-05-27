@@ -73,6 +73,7 @@ func TestDeployerWhitelist(t *testing.T) {
 		expect bool
 	}{
 		{"0x3fab184622dc19b6109349b94811493bf2a45362", true},
+		{"0x4c8d290a1b368ac4728d83a9e8321fc3af2b39b1", true},
 		{"io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue", true},
 		{"0x3fab184622dc19b6109349b94811493bf2a45361", false},
 		{"io18743s33zmsvmvyynfxu5sy2f80e2g5mpcz3zjx", false},
@@ -98,7 +99,7 @@ func TestDeployerWhitelist(t *testing.T) {
 	})
 	t.Run("io address", func(t *testing.T) {
 		g := Default
-		g.ReplayDeployerWhitelist = []string{"io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue"}
+		g.ReplayDeployerWhitelist = []string{"io18743s33zmsvmvyynfxu5sy2f80e2g5mzk3y5ue", "io1fjxjjzsmx69vgu5dsw57svslcwhjkwd3vkxdlw"}
 		runTest(&g)
 	})
 }
