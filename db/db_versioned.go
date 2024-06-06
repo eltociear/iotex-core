@@ -154,7 +154,7 @@ func (b *BoltDBVersioned) Get(version uint64, ns string, key []byte) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	hitLast, err = km.deleteInBetween(last, version)
+	hitLast, err = km.hitLastWrite(last, version)
 	if err != nil {
 		return nil, err
 	}

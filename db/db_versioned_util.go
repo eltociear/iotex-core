@@ -93,7 +93,7 @@ func (km *keyMeta) checkRead(version uint64) (bool, error) {
 	if version < km.lastVersion {
 		return false, nil
 	}
-	return km.deleteInBetween(km.lastVersion, version)
+	return km.hitLastWrite(km.lastVersion, version)
 }
 
 func (km *keyMeta) updateWrite(version uint64, value []byte) (*keyMeta, bool) {
@@ -130,7 +130,7 @@ func (km *keyMeta) lastDelete() uint64 {
 	return 0
 }
 
-func (km *keyMeta) deleteInBetween(write, read uint64) (bool, error) {
+func (km *keyMeta) hitLastWrite(write, read uint64) (bool, error) {
 	if write > read {
 		panic(fmt.Sprintf("last write %d > attempted read %d", write, read))
 	}
