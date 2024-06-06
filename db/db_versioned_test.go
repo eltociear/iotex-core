@@ -256,74 +256,108 @@ func TestVersionedDB(t *testing.T) {
 
 func TestMultipleWriteDelete(t *testing.T) {
 	r := require.New(t)
-	testPath, err := testutil.PathOfTempFile("test-version")
-	r.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
+	for i := 0; i < 2; i++ {
+		testPath, err := testutil.PathOfTempFile("test-version")
+		r.NoError(err)
+		defer func() {
+			testutil.CleanupPath(testPath)
+		}()
 
-	cfg := DefaultConfig
-	cfg.DbPath = testPath
-	db := NewBoltDBVersioned(cfg)
-	ctx := context.Background()
-	r.NoError(db.Start(ctx))
-	defer func() {
-		db.Stop(ctx)
-	}()
+		cfg := DefaultConfig
+		cfg.DbPath = testPath
+		db := NewBoltDBVersioned(cfg)
+		ctx := context.Background()
+		r.NoError(db.Start(ctx))
 
-	// multiple writes and deletes
-	r.NoError(db.Put(1, _bucket1, _k2, _v1))
-	r.NoError(db.Put(3, _bucket1, _k2, _v3))
-	v, err := db.Version(_bucket1, _k2)
-	r.NoError(err)
-	r.EqualValues(3, v)
-	r.NoError(db.Delete(7, _bucket1, _k2))
-	_, err = db.Version(_bucket1, _k2)
-	r.Equal(ErrDeleted, errors.Cause(err))
-	r.NoError(db.Put(10, _bucket1, _k2, _v2))
-	v, err = db.Version(_bucket1, _k2)
-	r.NoError(err)
-	r.EqualValues(10, v)
-	r.NoError(db.Delete(15, _bucket1, _k2))
-	_, err = db.Version(_bucket1, _k2)
-	r.Equal(ErrDeleted, errors.Cause(err))
-	r.NoError(db.Put(18, _bucket1, _k2, _v3))
-	r.NoError(db.Delete(18, _bucket1, _k2)) // delete-after-write
-	_, err = db.Version(_bucket1, _k2)
-	r.Equal(ErrDeleted, errors.Cause(err))
-	r.NoError(db.Put(21, _bucket1, _k2, _v4))
-	v, err = db.Version(_bucket1, _k2)
-	r.NoError(err)
-	r.EqualValues(21, v)
-	r.NoError(db.Delete(25, _bucket1, _k2))
-	r.NoError(db.Put(25, _bucket1, _k2, _k2)) // write-after-delete
-	v, err = db.Version(_bucket1, _k2)
-	r.NoError(err)
-	r.EqualValues(25, v)
-	for _, e := range []versionTest{
-		{_bucket1, _k2, nil, 0, ErrNotExist},
-		{_bucket1, _k2, _v1, 1, nil},
-		{_bucket1, _k2, _v1, 2, nil},
-		{_bucket1, _k2, _v3, 3, nil},
-		{_bucket1, _k2, _v3, 6, nil},
-		{_bucket1, _k2, nil, 7, ErrDeleted},
-		{_bucket1, _k2, nil, 9, ErrDeleted},
-		{_bucket1, _k2, _v2, 10, nil},
-		{_bucket1, _k2, _v2, 14, nil},
-		{_bucket1, _k2, nil, 15, ErrDeleted},
-		{_bucket1, _k2, nil, 17, ErrDeleted},
-		{_bucket1, _k2, nil, 18, ErrDeleted},
-		{_bucket1, _k2, nil, 20, ErrDeleted},
-		{_bucket1, _k2, _v4, 21, nil},
-		{_bucket1, _k2, _v4, 22, nil},
-		{_bucket1, _k2, _v4, 24, nil},
-		{_bucket1, _k2, _k2, 25, nil},
-		{_bucket1, _k2, _k2, 26, nil},
-		{_bucket1, _k2, _k2, 25000, nil},
-	} {
-		value, err := db.Get(e.height, e.ns, e.k)
-		r.Equal(e.err, errors.Cause(err))
-		r.Equal(e.v, value)
+		if i == 0 {
+			// multiple writes and deletes
+			r.NoError(db.Put(1, _bucket1, _k2, _v1))
+			r.NoError(db.Put(3, _bucket1, _k2, _v3))
+			v, err := db.Version(_bucket1, _k2)
+			r.NoError(err)
+			r.EqualValues(3, v)
+			r.NoError(db.Delete(7, _bucket1, _k2))
+			_, err = db.Version(_bucket1, _k2)
+			r.Equal(ErrDeleted, errors.Cause(err))
+			r.NoError(db.Put(10, _bucket1, _k2, _v2))
+			v, err = db.Version(_bucket1, _k2)
+			r.NoError(err)
+			r.EqualValues(10, v)
+			r.NoError(db.Delete(15, _bucket1, _k2))
+			_, err = db.Version(_bucket1, _k2)
+			r.Equal(ErrDeleted, errors.Cause(err))
+			r.NoError(db.Put(18, _bucket1, _k2, _v3))
+			r.NoError(db.Delete(18, _bucket1, _k2)) // delete-after-write
+			_, err = db.Version(_bucket1, _k2)
+			r.Equal(ErrDeleted, errors.Cause(err))
+			r.NoError(db.Put(21, _bucket1, _k2, _v4))
+			v, err = db.Version(_bucket1, _k2)
+			r.NoError(err)
+			r.EqualValues(21, v)
+			r.NoError(db.Delete(25, _bucket1, _k2))
+			r.NoError(db.Put(25, _bucket1, _k2, _k2)) // write-after-delete
+			v, err = db.Version(_bucket1, _k2)
+			r.NoError(err)
+			r.EqualValues(25, v)
+		} else {
+			// multiple writes and deletes using commitToDB
+			b := batch.NewBatch()
+			for _, e := range []versionTest{
+				{_bucket1, _k2, _v1, 1, nil},
+				{_bucket1, _k2, _v3, 3, nil},
+				{_bucket1, _k2, nil, 7, ErrDeleted},
+				{_bucket1, _k2, _v2, 10, nil},
+				{_bucket1, _k2, nil, 15, ErrDeleted},
+				{_bucket1, _k2, _v3, 18, ErrDeleted}, // delete-after-write
+				{_bucket1, _k2, _v4, 21, nil},
+				{_bucket1, _k2, _k2, 25, nil}, // write-after-delete
+			} {
+				if e.height == 7 || e.height == 15 {
+					b.Delete(e.ns, e.k, "test")
+				} else if e.height == 18 {
+					b.Put(e.ns, e.k, e.v, "test")
+					b.Delete(e.ns, e.k, "test")
+				} else if e.height == 25 {
+					b.Delete(e.ns, e.k, "test")
+					b.Put(e.ns, e.k, e.v, "test")
+				} else {
+					b.Put(e.ns, e.k, e.v, "test")
+				}
+				r.NoError(db.CommitToDB(e.height, nil, b))
+				b.Clear()
+				v, err := db.Version(e.ns, e.k)
+				r.Equal(e.err, errors.Cause(err))
+				if err == nil {
+					r.EqualValues(e.height, v)
+				}
+			}
+		}
+		for _, e := range []versionTest{
+			{_bucket1, _k2, nil, 0, ErrNotExist},
+			{_bucket1, _k2, _v1, 1, nil},
+			{_bucket1, _k2, _v1, 2, nil},
+			{_bucket1, _k2, _v3, 3, nil},
+			{_bucket1, _k2, _v3, 6, nil},
+			{_bucket1, _k2, nil, 7, ErrDeleted},
+			{_bucket1, _k2, nil, 9, ErrDeleted},
+			{_bucket1, _k2, _v2, 10, nil},
+			{_bucket1, _k2, _v2, 14, nil},
+			{_bucket1, _k2, nil, 15, ErrDeleted},
+			{_bucket1, _k2, nil, 17, ErrDeleted},
+			{_bucket1, _k2, nil, 18, ErrDeleted},
+			{_bucket1, _k2, nil, 20, ErrDeleted},
+			{_bucket1, _k2, _v4, 21, nil},
+			{_bucket1, _k2, _v4, 22, nil},
+			{_bucket1, _k2, _v4, 24, nil},
+			{_bucket1, _k2, _k2, 25, nil},
+			{_bucket1, _k2, _k2, 26, nil},
+			{_bucket1, _k2, _k2, 25000, nil},
+		} {
+			value, err := db.Get(e.height, e.ns, e.k)
+			r.Equal(e.err, errors.Cause(err))
+			r.Equal(e.v, value)
+		}
+		r.NoError(db.Stop(ctx))
 	}
 }
 

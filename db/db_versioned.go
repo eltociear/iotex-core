@@ -313,6 +313,7 @@ func (b *BoltDBVersioned) commitToDB(version uint64, vnsize map[string]int, ve, 
 					write = ve[i]
 					ns    = write.Namespace()
 					key   = write.Key()
+					val   = write.Value()
 					km    *keyMeta
 				)
 				// get bucket
@@ -335,7 +336,7 @@ func (b *BoltDBVersioned) commitToDB(version uint64, vnsize map[string]int, ve, 
 				case batch.Put:
 					if bytes.Equal(key, _minKey) {
 						// create namespace
-						if err = bucket.Put(key, write.Value()); err != nil {
+						if err = bucket.Put(key, val); err != nil {
 							return errors.Wrap(err, write.Error())
 						}
 					} else {
@@ -343,30 +344,42 @@ func (b *BoltDBVersioned) commitToDB(version uint64, vnsize map[string]int, ve, 
 						if vnsize[ns] != len(key) {
 							panic(fmt.Sprintf("BoltDBVersioned.commitToDB(), expect vnsize[%s] = %d, got %d", ns, vnsize[ns], len(key)))
 						}
-						km, exit := km.updateWrite(version, write.Value())
+						if len(val) == 0 {
+							return errors.Wrap(ErrInvalid, "not allowed to write nil value")
+						}
+						km, exit := km.updateWrite(version, val)
 						if exit {
 							// not a valid write
-							continue
+							return ErrInvalid
 						}
 						if err = bucket.Put(append(key, 0), km.serialize()); err != nil {
 							return errors.Wrap(err, write.Error())
 						}
-						if err = bucket.Put(versionedKey(key, version), write.Value()); err != nil {
+						if err = bucket.Put(versionedKey(key, version), val); err != nil {
 							return errors.Wrap(err, write.Error())
 						}
 					}
 				case batch.Delete:
-					if km == nil || version < km.lastVersion || version <= km.deleteVersion {
+					if km == nil {
 						continue
+					}
+					if err = km.updateDelete(version); err != nil {
+						return err
 					}
 					// wrong-size key should be caught in dedup(), but check anyway
 					if vnsize[ns] != len(key) {
 						panic(fmt.Sprintf("BoltDBVersioned.commitToDB(), expect vnsize[%s] = %d, got %d", ns, vnsize[ns], len(key)))
 					}
 					// mark the delete version
-					km.deleteVersion = version
+					km.deleteVersion = append(km.deleteVersion, version)
 					if err = bucket.Put(append(key, 0), km.serialize()); err != nil {
 						return errors.Wrap(err, write.Error())
+					}
+					if version == km.lastVersion {
+						// write <key, nil> to indicate this is a delete-after-write
+						if err = bucket.Put(versionedKey(key, version), nil); err != nil {
+							return errors.Wrap(err, write.Error())
+						}
 					}
 				}
 			}
