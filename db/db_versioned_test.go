@@ -61,6 +61,8 @@ func TestVersionedDB(t *testing.T) {
 	vn, err = db.checkNamespace(_bucket1)
 	r.NoError(err)
 	r.EqualValues(len(_k2), vn.keyLen)
+	// cannot write nil value
+	r.Equal(ErrInvalid, errors.Cause(db.Put(1, _bucket1, _k2, nil)))
 	km, err = db.checkKey(_bucket1, _k2)
 	r.Zero(km.firstVersion)
 	r.Zero(km.lastVersion)

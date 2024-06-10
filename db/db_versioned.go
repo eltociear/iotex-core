@@ -102,6 +102,9 @@ func (b *BoltDBVersioned) Put(version uint64, ns string, key, value []byte) erro
 	if !b.db.IsReady() {
 		return ErrDBNotStarted
 	}
+	if len(value) == 0 {
+		return errors.Wrap(ErrInvalid, "not allowed to write nil value")
+	}
 	// check namespace
 	vn, err := b.checkNamespace(ns)
 	if err != nil {
