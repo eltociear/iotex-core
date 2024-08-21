@@ -110,3 +110,13 @@ func (b *Block) ActionByHash(h hash.Hash256) (*action.SealedEnvelope, uint32, er
 	}
 	return nil, 0, errors.Errorf("block does not have action %x", h)
 }
+
+// Blobs returns blobs in the block if any
+func (b *Block) HasBlob() bool {
+	for _, act := range b.Actions {
+		if act.BlobTxSidecar() != nil {
+			return true
+		}
+	}
+	return false
+}

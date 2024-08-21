@@ -34,6 +34,7 @@ type (
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
 		SetChainID(chainID uint32)
+		BlobTxSidecar() *types.BlobTxSidecar
 	}
 
 	envelope struct {
@@ -274,3 +275,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
+
+func (elp *envelope) BlobTxSidecar() *types.BlobTxSidecar {
+	return nil
+}

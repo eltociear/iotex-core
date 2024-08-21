@@ -41,6 +41,13 @@ func Must(d []byte, err error) []byte {
 // convert number sequence 0, 1, 2, ... n to big-endian results in byte-sorted []byte slice
 // we leverage this nice property to search/iterate action index stored within a bucket
 
+// Uint16ToBytesBigEndian converts a uint16 to 2 bytes in big-endian
+func Uint16ToBytesBigEndian(value uint16) []byte {
+	bytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(bytes, value)
+	return bytes
+}
+
 // Uint32ToBytesBigEndian converts a uint32 to 4 bytes in big-endian
 func Uint32ToBytesBigEndian(value uint32) []byte {
 	bytes := make([]byte, 4)

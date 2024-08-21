@@ -287,7 +287,7 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	}
 	var (
 		err   error
-		store blockdao.BlockDAO
+		store blockdao.BlockStore
 	)
 	if forTest {
 		store, err = filedao.NewFileDAOInMemForTest()
